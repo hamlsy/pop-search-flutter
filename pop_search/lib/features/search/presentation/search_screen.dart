@@ -2,14 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:pop_search/core/constants/legal_notices.dart';
 import 'package:pop_search/core/repositories/history_repository.dart';
 import 'package:pop_search/core/repositories/preferences_repository.dart';
-import 'package:pop_search/core/repositories/shared_preferences/history_repository_impl.dart';
-import 'package:pop_search/core/repositories/shared_preferences/preferences_repository_impl.dart';
-import 'package:pop_search/core/services/url_launcher_client.dart';
 import 'package:pop_search/features/search/application/search_execution_service.dart';
 import 'package:pop_search/features/search/domain/search_engine.dart';
+import 'package:pop_search/features/settings/presentation/settings_screen.dart';
+import 'package:pop_search/features/settings/presentation/theme_controller.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  const SearchScreen({
+    super.key,
+    required this.historyRepository,
+    required this.preferencesRepository,
+    required this.executionService,
+    required this.themeController,
+  });
+
+  final HistoryRepository historyRepository;
+  final PreferencesRepository preferencesRepository;
+  final SearchExecutionService executionService;
+  final ThemeController themeController;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -18,12 +28,6 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _queryController = TextEditingController();
   final FocusNode _queryFocusNode = FocusNode();
-  final PreferencesRepository _preferencesRepository =
-      SharedPreferencesPreferencesRepository();
-  final HistoryRepository _historyRepository = SharedPreferencesHistoryRepository();
-  final SearchExecutionService _executionService = SearchExecutionService(
-    launchClient: const UrlLauncherClient(),
-  );
   final List<String> _recentQueries = <String>[];
 
   SearchEngine _selectedEngine = SearchEngine.google;
@@ -40,8 +44,8 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _restorePersistedState() async {
-    final lastEngine = await _preferencesRepository.readLastEngine();
-    final recentQueries = await _historyRepository.readRecentQueries();
+    final lastEngine = await widget.preferencesRepository.readLastEngine();
+    final recentQueries = await widget.historyRepository.readRecentQueries();
     if (!mounted) {
       return;
     }
@@ -68,7 +72,7 @@ class _SearchScreenState extends State<SearchScreen> {
     }
 
     try {
-      await _executionService.execute(engine: _selectedEngine, query: query);
+      await widget.executionService.execute(engine: _selectedEngine, query: query);
     } on SearchExecutionException catch (error) {
       if (!mounted) {
         return;
@@ -84,8 +88,8 @@ class _SearchScreenState extends State<SearchScreen> {
       _recentQueries.insert(0, query);
     });
 
-    await _preferencesRepository.writeLastEngine(_selectedEngine);
-    await _historyRepository.saveQuery(query);
+    await widget.preferencesRepository.writeLastEngine(_selectedEngine);
+    await widget.historyRepository.saveQuery(query);
 
     if (!mounted) {
       return;
@@ -106,11 +110,11 @@ class _SearchScreenState extends State<SearchScreen> {
     setState(() {
       _selectedEngine = engine;
     });
-    await _preferencesRepository.writeLastEngine(engine);
+    await widget.preferencesRepository.writeLastEngine(engine);
   }
 
   Future<void> _clearRecentQueries() async {
-    await _historyRepository.clear();
+    await widget.historyRepository.clear();
     if (!mounted) {
       return;
     }
@@ -118,7 +122,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _removeRecentQuery(String query) async {
-    await _historyRepository.removeQuery(query);
+    await widget.historyRepository.removeQuery(query);
     if (!mounted) {
       return;
     }
@@ -144,18 +148,34 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
+  Future<void> _openSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SettingsScreen(
+          historyRepository: widget.historyRepository,
+          themeController: widget.themeController,
+          onHistoryCleared: _clearRecentQueries,
+        ),
+      ),
+    );
+    await _restorePersistedState();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final colors = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: SafeArea(
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: <Color>[Color(0xFFF4F7F3), Color(0xFFE9F1EC)],
+              colors: isDark
+                  ? const <Color>[Color(0xFF0F1713), Color(0xFF13221B)]
+                  : const <Color>[Color(0xFFF4F7F3), Color(0xFFE9F1EC)],
             ),
           ),
           child: Center(
@@ -178,21 +198,34 @@ class _SearchScreenState extends State<SearchScreen> {
                           offset: Offset(0, 10),
                         ),
                       ],
-                      color: Colors.white,
+                      color: colors.surface,
                     ),
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        Text(
-                          'PopSearch',
-                          style: Theme.of(context).textTheme.headlineSmall,
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                'PopSearch',
+                                style: Theme.of(context).textTheme.headlineSmall,
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: _openSettings,
+                              icon: const Icon(Icons.settings_outlined),
+                              tooltip: 'Settings',
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 6),
                         Text(
                           'Pick an engine and search instantly.',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: const Color(0xFF60746B),
+                                color: isDark
+                                    ? const Color(0xFF9CB4A9)
+                                    : const Color(0xFF60746B),
                               ),
                         ),
                         const SizedBox(height: 18),
@@ -209,15 +242,21 @@ class _SearchScreenState extends State<SearchScreen> {
                                 size: 18,
                                 color: isSelected
                                     ? colors.onPrimary
-                                    : const Color(0xFF496257),
+                                    : (isDark
+                                        ? const Color(0xFFAAC8BA)
+                                        : const Color(0xFF496257)),
                               ),
                               label: Text(engine.label),
                               selectedColor: colors.primary,
-                              backgroundColor: const Color(0xFFEAF1ED),
+                              backgroundColor: isDark
+                                  ? const Color(0xFF22372D)
+                                  : const Color(0xFFEAF1ED),
                               labelStyle: TextStyle(
                                 color: isSelected
                                     ? colors.onPrimary
-                                    : const Color(0xFF263D33),
+                                    : (isDark
+                                        ? const Color(0xFFE0F1E8)
+                                        : const Color(0xFF263D33)),
                                 fontWeight: FontWeight.w600,
                               ),
                               shape: RoundedRectangleBorder(
@@ -288,12 +327,18 @@ class _SearchScreenState extends State<SearchScreen> {
                           Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF3F7F4),
+                              color: isDark
+                                  ? const Color(0xFF1A2B23)
+                                  : const Color(0xFFF3F7F4),
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: const Text(
+                            child: Text(
                               'No recent searches yet.',
-                              style: TextStyle(color: Color(0xFF60746B)),
+                              style: TextStyle(
+                                color: isDark
+                                    ? const Color(0xFF9CB4A9)
+                                    : const Color(0xFF60746B),
+                              ),
                             ),
                           )
                         else
@@ -341,7 +386,9 @@ class _SearchScreenState extends State<SearchScreen> {
                         Text(
                           kNonAffiliationNotice,
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: const Color(0xFF6D7A74),
+                                color: isDark
+                                    ? const Color(0xFFA9B7B0)
+                                    : const Color(0xFF6D7A74),
                               ),
                           textAlign: TextAlign.center,
                         ),
