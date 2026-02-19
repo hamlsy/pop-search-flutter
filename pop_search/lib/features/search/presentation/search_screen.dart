@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:pop_search/core/constants/legal_notices.dart';
+import 'package:pop_search/core/repositories/history_repository.dart';
+import 'package:pop_search/core/repositories/preferences_repository.dart';
+import 'package:pop_search/core/repositories/shared_preferences/history_repository_impl.dart';
+import 'package:pop_search/core/repositories/shared_preferences/preferences_repository_impl.dart';
 import 'package:pop_search/core/services/url_launcher_client.dart';
 import 'package:pop_search/features/search/application/search_execution_service.dart';
 import 'package:pop_search/features/search/domain/search_engine.dart';
@@ -12,10 +16,11 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  static const _maxRecentItems = 8;
-
   final TextEditingController _queryController = TextEditingController();
   final FocusNode _queryFocusNode = FocusNode();
+  final PreferencesRepository _preferencesRepository =
+      SharedPreferencesPreferencesRepository();
+  final HistoryRepository _historyRepository = SharedPreferencesHistoryRepository();
   final SearchExecutionService _executionService = SearchExecutionService(
     launchClient: const UrlLauncherClient(),
   );
@@ -26,10 +31,26 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
+    _restorePersistedState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _queryFocusNode.requestFocus();
       }
+    });
+  }
+
+  Future<void> _restorePersistedState() async {
+    final lastEngine = await _preferencesRepository.readLastEngine();
+    final recentQueries = await _historyRepository.readRecentQueries();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedEngine = lastEngine;
+      _recentQueries
+        ..clear()
+        ..addAll(recentQueries);
     });
   }
 
@@ -61,10 +82,10 @@ class _SearchScreenState extends State<SearchScreen> {
     setState(() {
       _recentQueries.remove(query);
       _recentQueries.insert(0, query);
-      if (_recentQueries.length > _maxRecentItems) {
-        _recentQueries.removeLast();
-      }
     });
+
+    await _preferencesRepository.writeLastEngine(_selectedEngine);
+    await _historyRepository.saveQuery(query);
 
     if (!mounted) {
       return;
@@ -79,6 +100,31 @@ class _SearchScreenState extends State<SearchScreen> {
     _queryController.clear();
     _queryFocusNode.requestFocus();
     setState(() {});
+  }
+
+  Future<void> _onEngineSelected(SearchEngine engine) async {
+    setState(() {
+      _selectedEngine = engine;
+    });
+    await _preferencesRepository.writeLastEngine(engine);
+  }
+
+  Future<void> _clearRecentQueries() async {
+    await _historyRepository.clear();
+    if (!mounted) {
+      return;
+    }
+    setState(_recentQueries.clear);
+  }
+
+  Future<void> _removeRecentQuery(String query) async {
+    await _historyRepository.removeQuery(query);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _recentQueries.remove(query);
+    });
   }
 
   IconData _iconForEngine(SearchEngine engine) {
@@ -157,11 +203,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             final isSelected = engine == _selectedEngine;
                             return ChoiceChip(
                               selected: isSelected,
-                              onSelected: (_) {
-                                setState(() {
-                                  _selectedEngine = engine;
-                                });
-                              },
+                              onSelected: (_) => _onEngineSelected(engine),
                               avatar: Icon(
                                 _iconForEngine(engine),
                                 size: 18,
@@ -236,9 +278,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             ),
                             if (_recentQueries.isNotEmpty)
                               TextButton(
-                                onPressed: () {
-                                  setState(_recentQueries.clear);
-                                },
+                                onPressed: _clearRecentQueries,
                                 child: const Text('Clear all'),
                               ),
                           ],
@@ -269,17 +309,30 @@ class _SearchScreenState extends State<SearchScreen> {
                                   size: 18,
                                 ),
                                 title: Text(query),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.north_west_rounded),
-                                  onPressed: () {
-                                    _queryController.text = query;
-                                    _queryController.selection =
-                                        TextSelection.fromPosition(
-                                      TextPosition(offset: query.length),
-                                    );
-                                    _submitSearch();
-                                  },
-                                  tooltip: 'Search again',
+                                trailing: SizedBox(
+                                  width: 92,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: <Widget>[
+                                      IconButton(
+                                        icon: const Icon(Icons.north_west_rounded),
+                                        onPressed: () {
+                                          _queryController.text = query;
+                                          _queryController.selection =
+                                              TextSelection.fromPosition(
+                                            TextPosition(offset: query.length),
+                                          );
+                                          _submitSearch();
+                                        },
+                                        tooltip: 'Search again',
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline_rounded),
+                                        onPressed: () => _removeRecentQuery(query),
+                                        tooltip: 'Delete',
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               );
                             }).toList(),
