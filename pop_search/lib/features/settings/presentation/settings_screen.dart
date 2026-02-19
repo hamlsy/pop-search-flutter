@@ -17,6 +17,33 @@ class SettingsScreen extends StatelessWidget {
   final Future<void> Function() onHistoryCleared;
 
   Future<void> _clearHistory(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              title: const Text('Clear history?'),
+              content: const Text(
+                'This will remove all recent search entries on this device.',
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Clear'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+
+    if (!confirmed) {
+      return;
+    }
+
     await historyRepository.clear();
     await onHistoryCleared();
     if (!context.mounted) {
