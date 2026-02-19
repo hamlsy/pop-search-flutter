@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pop_search/core/constants/legal_notices.dart';
-import 'package:pop_search/core/utils/search_url_builder.dart';
+import 'package:pop_search/core/services/url_launcher_client.dart';
+import 'package:pop_search/features/search/application/search_execution_service.dart';
 import 'package:pop_search/features/search/domain/search_engine.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -15,7 +16,9 @@ class _SearchScreenState extends State<SearchScreen> {
 
   final TextEditingController _queryController = TextEditingController();
   final FocusNode _queryFocusNode = FocusNode();
-  final SearchUrlBuilder _urlBuilder = const SearchUrlBuilder();
+  final SearchExecutionService _executionService = SearchExecutionService(
+    launchClient: const UrlLauncherClient(),
+  );
   final List<String> _recentQueries = <String>[];
 
   SearchEngine _selectedEngine = SearchEngine.google;
@@ -37,13 +40,23 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
-  void _submitSearch() {
+  Future<void> _submitSearch() async {
     final query = _queryController.text.trim();
     if (query.isEmpty) {
       return;
     }
 
-    final uri = _urlBuilder.build(engine: _selectedEngine, query: query);
+    try {
+      await _executionService.execute(engine: _selectedEngine, query: query);
+    } on SearchExecutionException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+      return;
+    }
 
     setState(() {
       _recentQueries.remove(query);
@@ -53,10 +66,12 @@ class _SearchScreenState extends State<SearchScreen> {
       }
     });
 
+    if (!mounted) {
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${_selectedEngine.label}: $uri'),
-      ),
+      SnackBar(content: Text('Opened ${_selectedEngine.label} search result.')),
     );
   }
 
