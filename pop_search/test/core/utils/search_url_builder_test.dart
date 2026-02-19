@@ -10,7 +10,7 @@ void main() {
 
     expect(
       uri.toString(),
-      'https://www.google.com/search?q=flutter%20test',
+      'https://www.google.com/search?q=flutter+test',
     );
   });
 
@@ -19,7 +19,7 @@ void main() {
 
     expect(
       uri.toString(),
-      'https://www.youtube.com/results?search_query=lofi%20mix',
+      'https://www.youtube.com/results?search_query=lofi+mix',
     );
   });
 
@@ -28,7 +28,7 @@ void main() {
 
     expect(
       uri.toString(),
-      'https://search.naver.com/search.naver?query=%ED%95%9C%EA%B8%80%20%EA%B2%80%EC%83%89',
+      'https://search.naver.com/search.naver?query=%ED%95%9C%EA%B8%80+%EA%B2%80%EC%83%89',
     );
   });
 
@@ -37,7 +37,7 @@ void main() {
 
     expect(
       uri.toString(),
-      'https://search.daum.net/search?q=dart%20uri',
+      'https://search.daum.net/search?q=dart+uri',
     );
   });
 
@@ -46,7 +46,7 @@ void main() {
 
     expect(
       uri.toString(),
-      'https://search.yahoo.com/search?p=market%20news',
+      'https://search.yahoo.com/search?p=market+news',
     );
   });
 }

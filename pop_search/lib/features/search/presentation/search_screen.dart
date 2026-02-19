@@ -404,7 +404,7 @@ class _SearchScreenState extends State<SearchScreen>
                                       ),
                                       title: Text(query),
                                       trailing: SizedBox(
-                                        width: 92,
+                                        width: 112,
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: <Widget>[

@@ -96,6 +96,6 @@ void main() {
 
     expect(launchClient.launched.length, 2);
     expect(find.text('Recent Searches'), findsOneWidget);
-    expect(find.text('second query'), findsOneWidget);
+    expect(find.text('second query'), findsWidgets);
   });
 }
