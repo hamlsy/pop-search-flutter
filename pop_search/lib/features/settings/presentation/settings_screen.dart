@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pop_search/core/constants/legal_notices.dart';
+import 'package:pop_search/core/constants/privacy_notice.dart';
 import 'package:pop_search/core/repositories/history_repository.dart';
 import 'package:pop_search/features/settings/presentation/theme_controller.dart';
 import 'package:pop_search/features/settings/presentation/widgets/android_banner_ad_section.dart';
@@ -122,6 +123,12 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 20),
           Text(
             kNonAffiliationNotice,
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            kPrivacyNotice,
             style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
