@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pop_search/core/constants/legal_notices.dart';
 import 'package:pop_search/core/repositories/history_repository.dart';
 import 'package:pop_search/features/settings/presentation/theme_controller.dart';
+import 'package:pop_search/features/settings/presentation/widgets/android_banner_ad_section.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -97,6 +98,8 @@ class SettingsScreen extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
+          const SizedBox(height: 20),
+          const AndroidBannerAdSection(),
         ],
       ),
     );
